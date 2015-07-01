@@ -177,8 +177,8 @@ def _check_if_ac_powered(pl):
 	    which = lambda f: (lambda fp: os.path.exists(fp) and fp)(os.path.join('/usr/bin', f))
 
 	if which('pmset'):
-	    def _is_ac_powered(pl):
-		return 'AC' in run_cmd(pl, ['pmset', '-g', 'batt'])
+		def _is_ac_powered(pl):
+			return 'AC' in run_cmd(pl, ['pmset', '-g', 'batt'])
 
 	return _is_ac_powered
 

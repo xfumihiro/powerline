@@ -169,8 +169,37 @@ def _get_capacity(pl):
 		_get_capacity = _failing_get_capacity
 	return _get_capacity(pl)
 
+def _check_if_ac_powered(pl):
+	try:
+	    from shutil import which
+	except ImportError:
+	    pl.info('Using dumb "which" which only checks for file in /usr/bin')
+	    which = lambda f: (lambda fp: os.path.exists(fp) and fp)(os.path.join('/usr/bin', f))
 
-def battery(pl, format='{capacity:3.0%}', steps=5, gamify=False, full_heart='O', empty_heart='O'):
+	if which('pmset'):
+	    def _is_ac_powered(pl):
+		return 'AC' in run_cmd(pl, ['pmset', '-g', 'batt'])
+
+	return _is_ac_powered
+
+	raise NotImplementedError
+
+def _is_ac_powered(pl):
+	global _is_ac_powered
+
+	def _failing_check_if_ac_powered(pl):
+		raise NotImplementedError
+
+	try:
+		_is_ac_powered = _check_if_ac_powered(pl)
+	except NotImplementedError:
+		_is_ac_powered = _failing_check_if_ac_powered
+	except Exception as e:
+		pl.exception('Exception while checking if AC powered', str(e))
+		_is_ac_powered = _failing_check_if_ac_powered
+	return _is_ac_powered(pl)
+
+def battery(pl, format='{capacity:3.0%}', steps=5, gamify=False, full_heart='O', empty_heart='O', charging='⚡︎'):
 	'''Return battery charge status.
 
 	:param str format:
@@ -189,6 +218,8 @@ def battery(pl, format='{capacity:3.0%}', steps=5, gamify=False, full_heart='O',
 		another gradient level and highlighting group, so it is OK for it to be 
 		the same as full_heart as long as necessary highlighting groups are 
 		defined.
+	:param str charging:
+		Indication of "AC charging"
 
 	``battery_gradient`` and ``battery`` groups are used in any case, first is 
 	preferred.
@@ -200,6 +231,13 @@ def battery(pl, format='{capacity:3.0%}', steps=5, gamify=False, full_heart='O',
 	except NotImplementedError:
 		pl.info('Unable to get battery capacity.')
 		return None
+
+	try:
+		ac_powered = _is_ac_powered(pl)
+	except NotImplementedError:
+		pl.info('Unable to check if AC powered.')
+		return None
+
 	ret = []
 	if gamify:
 		denom = int(steps)
@@ -220,7 +258,7 @@ def battery(pl, format='{capacity:3.0%}', steps=5, gamify=False, full_heart='O',
 		})
 	else:
 		ret.append({
-			'contents': format.format(capacity=(capacity / 100.0)),
+		    'contents': (charging + ' ' if ac_powered else '') + format.format(capacity=(capacity / 100.0)),
 			'highlight_groups': ['battery_gradient', 'battery'],
 			# Gradients are “least alert – most alert” by default, capacity has 
 			# the opposite semantics.

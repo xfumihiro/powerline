@@ -884,50 +884,54 @@ class TestBat(TestCommon):
 		def _get_capacity(pl):
 			return 86
 
+		def _is_ac_powered(pl):
+			return False
+
 		with replace_attr(self.module, '_get_capacity', _get_capacity):
-			self.assertEqual(self.module.battery(pl=pl), [{
-				'contents': '86%',
-				'highlight_groups': ['battery_gradient', 'battery'],
-				'gradient_level': 14,
-			}])
-			self.assertEqual(self.module.battery(pl=pl, format='{capacity:.2f}'), [{
-				'contents': '0.86',
-				'highlight_groups': ['battery_gradient', 'battery'],
-				'gradient_level': 14,
-			}])
-			self.assertEqual(self.module.battery(pl=pl, steps=7), [{
-				'contents': '86%',
-				'highlight_groups': ['battery_gradient', 'battery'],
-				'gradient_level': 14,
-			}])
-			self.assertEqual(self.module.battery(pl=pl, gamify=True), [
-				{
+			with replace_attr(self.module, '_is_ac_powered', _is_ac_powered):
+				self.assertEqual(self.module.battery(pl=pl), [{
+					'contents': '86%',
+					'highlight_groups': ['battery_gradient', 'battery'],
+					'gradient_level': 14,
+				}])
+				self.assertEqual(self.module.battery(pl=pl, format='{capacity:.2f}'), [{
+				    'contents': '0.86',
+				    'highlight_groups': ['battery_gradient', 'battery'],
+				    'gradient_level': 14,
+				    }])
+				self.assertEqual(self.module.battery(pl=pl, steps=7), [{
+				    'contents': '86%',
+				    'highlight_groups': ['battery_gradient', 'battery'],
+				    'gradient_level': 14,
+				    }])
+				self.assertEqual(self.module.battery(pl=pl, gamify=True), [
+				    {
 					'contents': 'OOOO',
 					'draw_inner_divider': False,
 					'highlight_groups': ['battery_full', 'battery_gradient', 'battery'],
 					'gradient_level': 0
-				},
-				{
+					},
+				    {
 					'contents': 'O',
 					'draw_inner_divider': False,
 					'highlight_groups': ['battery_empty', 'battery_gradient', 'battery'],
 					'gradient_level': 100
-				}
-			])
-			self.assertEqual(self.module.battery(pl=pl, gamify=True, full_heart='+', empty_heart='-', steps='10'), [
-				{
+					}
+				    ])
+				self.assertEqual(self.module.battery(pl=pl, gamify=True, full_heart='+', empty_heart='-', steps='10'), [
+				    {
 					'contents': '++++++++',
 					'draw_inner_divider': False,
 					'highlight_groups': ['battery_full', 'battery_gradient', 'battery'],
 					'gradient_level': 0
-				},
-				{
+					},
+				    {
 					'contents': '--',
 					'draw_inner_divider': False,
 					'highlight_groups': ['battery_empty', 'battery_gradient', 'battery'],
 					'gradient_level': 100
-				}
-			])
+					}
+				    ])
 
 
 class TestVim(TestCase):

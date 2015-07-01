@@ -169,6 +169,7 @@ def _get_capacity(pl):
 		_get_capacity = _failing_get_capacity
 	return _get_capacity(pl)
 
+
 def _check_if_ac_powered(pl):
 	try:
 	    from shutil import which
@@ -177,12 +178,13 @@ def _check_if_ac_powered(pl):
 	    which = lambda f: (lambda fp: os.path.exists(fp) and fp)(os.path.join('/usr/bin', f))
 
 	if which('pmset'):
-	    def _is_ac_powered(pl):
-		return 'AC' in run_cmd(pl, ['pmset', '-g', 'batt'])
+		def _is_ac_powered(pl):
+			return 'AC' in run_cmd(pl, ['pmset', '-g', 'batt'])
 
 	return _is_ac_powered
 
 	raise NotImplementedError
+
 
 def _is_ac_powered(pl):
 	global _is_ac_powered
@@ -199,7 +201,8 @@ def _is_ac_powered(pl):
 		_is_ac_powered = _failing_check_if_ac_powered
 	return _is_ac_powered(pl)
 
-def battery(pl, format='{capacity:3.0%}', steps=5, gamify=False, full_heart='O', empty_heart='O', charging='⚡︎'):
+
+def battery(pl, format='{capacity:3.0%}', steps=5, gamify=False, full_heart='O', empty_heart='O', charging='C'):
 	'''Return battery charge status.
 
 	:param str format:
@@ -258,10 +261,11 @@ def battery(pl, format='{capacity:3.0%}', steps=5, gamify=False, full_heart='O',
 		})
 	else:
 		ret.append({
-		    'contents': (charging + ' ' if ac_powered else '') + format.format(capacity=(capacity / 100.0)),
+			'contents': (charging + ' ' if ac_powered else '') + format.format(capacity=(capacity / 100.0)),
 			'highlight_groups': ['battery_gradient', 'battery'],
 			# Gradients are “least alert – most alert” by default, capacity has 
 			# the opposite semantics.
 			'gradient_level': 100 - capacity,
 		})
 	return ret
+

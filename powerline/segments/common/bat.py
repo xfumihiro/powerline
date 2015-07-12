@@ -169,7 +169,24 @@ def _get_capacity(pl):
 		_get_capacity = _failing_get_capacity
 	return _get_capacity(pl)
 
+
 def _check_if_ac_powered(pl):
+	if os.path.isdir('/sys/class/power_supply'):
+	    linux_ac_fmt = '/sys/class/power_supply/{0}/online'
+	    for linux_ac in os.listdir('/sys/class/power_sypply'):
+		online_path = linux_ac_fmt.format(linux_ac)
+		if linux_ac.startswith('AC') and os.path.exists(online_path):
+		    pl.debug('Using /sys/class/power_supply with ac {0}', linux_ac)
+
+		    def _is_ac_powered(pl):
+			with open(online_path, 'r') as f:
+			    return bool(f.readline())
+
+		    return _check_if_ac_powered
+	    pl.debug('Not using /sys/class/power_supply as no ac_power was found')
+	else:
+	    pl.debuf('Not using /sys/class/power_supply: no directory')
+
 	try:
 	    from shutil import which
 	except ImportError:
@@ -183,6 +200,7 @@ def _check_if_ac_powered(pl):
 	return _is_ac_powered
 
 	raise NotImplementedError
+
 
 def _is_ac_powered(pl):
 	global _is_ac_powered
@@ -199,7 +217,8 @@ def _is_ac_powered(pl):
 		_is_ac_powered = _failing_check_if_ac_powered
 	return _is_ac_powered(pl)
 
-def battery(pl, format='{capacity:3.0%}', steps=5, gamify=False, full_heart='O', empty_heart='O', charging='⚡︎'):
+
+def battery(pl, format='{capacity:3.0%}', steps=5, gamify=False, full_heart='O', empty_heart='O', charging='C'):
 	'''Return battery charge status.
 
 	:param str format:
@@ -258,10 +277,11 @@ def battery(pl, format='{capacity:3.0%}', steps=5, gamify=False, full_heart='O',
 		})
 	else:
 		ret.append({
-		    'contents': (charging + ' ' if ac_powered else '') + format.format(capacity=(capacity / 100.0)),
+			'contents': (charging + ' ' if ac_powered else '') + format.format(capacity=(capacity / 100.0)),
 			'highlight_groups': ['battery_gradient', 'battery'],
 			# Gradients are “least alert – most alert” by default, capacity has 
 			# the opposite semantics.
 			'gradient_level': 100 - capacity,
 		})
 	return ret
+

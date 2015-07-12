@@ -173,7 +173,7 @@ def _get_capacity(pl):
 def _check_if_ac_powered(pl):
 	if os.path.isdir('/sys/class/power_supply'):
 	    linux_ac_fmt = '/sys/class/power_supply/{0}/online'
-	    for linux_ac in os.listdir('/sys/class/power_sypply'):
+	    for linux_ac in os.listdir('/sys/class/power_supply'):
 		online_path = linux_ac_fmt.format(linux_ac)
 		if linux_ac.startswith('AC') and os.path.exists(online_path):
 		    pl.debug('Using /sys/class/power_supply with ac {0}', linux_ac)

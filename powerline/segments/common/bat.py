@@ -1,4 +1,4 @@
-
+# encoding=utf8
 from __future__ import (unicode_literals, division, absolute_import, print_function)
 
 import os
@@ -16,7 +16,7 @@ def _get_battery(pl):
 	try:
 		import dbus
 	except ImportError:
-		pl.debug('Not using DBUS+UPower as dbus is not available')
+		pl.error('Not using DBUS+UPower as dbus is not available')
 	else:
 		try:
 			bus = dbus.SystemBus()
@@ -67,6 +67,7 @@ def _get_battery(pl):
 				pl.debug('Using /sys/class/power_supply with battery {0}', linux_bat)
 
 				def _get_capacity(pl):
+                                        pl.error('_get_capacity')
 					with open(cap_path, 'r') as f:
 						return int(float(f.readline().split()[0]))
 
@@ -171,6 +172,44 @@ def _get_capacity(pl):
 
 
 def _check_if_ac_powered(pl):
+        try:
+		import dbus
+	except ImportError:
+		pl.error('Not using DBUS+UPower as dbus is not available')
+	else:
+		try:
+			bus = dbus.SystemBus()
+		except Exception as e:
+			pl.exception('Failed to connect to system bus: {0}', str(e))
+		else:
+			interface = 'org.freedesktop.UPower'
+			try:
+				up = bus.get_object(interface, '/org/freedesktop/UPower')
+			except dbus.exceptions.DBusException as e:
+				if getattr(e, '_dbus_error_name', '').endswith('ServiceUnknown'):
+					pl.debug('Not using DBUS+UPower as UPower is not available via dbus')
+				else:
+					pl.exception('Failed to get UPower service with dbus: {0}', str(e))
+			else:
+				devinterface = 'org.freedesktop.DBus.Properties'
+				devtype_name = interface + '.Device'
+				for devpath in up.EnumerateDevices(dbus_interface=interface):
+					dev = bus.get_object(interface, devpath)
+					devget = lambda what: dev.Get(
+						devtype_name,
+						what,
+						dbus_interface=devinterface
+					)
+				pl.debug('Using DBUS+UPower with {0}', devpath)
+				return lambda pl: bool(
+					dbus.Interface(dev, dbus_interface=devinterface).Get(
+						devtype_name,
+						'State'
+					) == 1
+				)
+			        pl.debug('Not using DBUS+UPower as no batteries were found')
+
+
 	if os.path.isdir('/sys/class/power_supply'):
 	    linux_ac_fmt = '/sys/class/power_supply/{0}/online'
 	    for linux_ac in os.listdir('/sys/class/power_supply'):
@@ -180,9 +219,10 @@ def _check_if_ac_powered(pl):
 
 		    def _is_ac_powered(pl):
 			with open(online_path, 'r') as f:
+                            pl.debug('bool: {0}', bool(f.readline()))
 			    return bool(f.readline())
 
-		    return _check_if_ac_powered
+		    return _is_ac_powered
 	    pl.debug('Not using /sys/class/power_supply as no ac_power was found')
 	else:
 	    pl.debug('Not using /sys/class/power_supply: no directory')
@@ -197,7 +237,7 @@ def _check_if_ac_powered(pl):
 		def _is_ac_powered(pl):
 			return 'AC' in run_cmd(pl, ['pmset', '-g', 'batt'])
 
-	return _is_ac_powered
+                return _is_ac_powered
 
 	raise NotImplementedError
 

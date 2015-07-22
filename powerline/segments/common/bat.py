@@ -1,4 +1,4 @@
-# vim:fileencoding=utf-8:noet
+
 from __future__ import (unicode_literals, division, absolute_import, print_function)
 
 import os
@@ -185,7 +185,7 @@ def _check_if_ac_powered(pl):
 		    return _check_if_ac_powered
 	    pl.debug('Not using /sys/class/power_supply as no ac_power was found')
 	else:
-	    pl.debuf('Not using /sys/class/power_supply: no directory')
+	    pl.debug('Not using /sys/class/power_supply: no directory')
 
 	try:
 	    from shutil import which

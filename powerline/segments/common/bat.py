@@ -172,26 +172,26 @@ def _get_capacity(pl):
 
 def _check_if_ac_powered(pl):
 	if os.path.isdir('/sys/class/power_supply'):
-	    linux_ac_fmt = '/sys/class/power_supply/{0}/online'
-	    for linux_ac in os.listdir('/sys/class/power_supply'):
-		online_path = linux_ac_fmt.format(linux_ac)
-		if linux_ac.startswith('AC') and os.path.exists(online_path):
-		    pl.debug('Using /sys/class/power_supply with ac {0}', linux_ac)
+		linux_ac_fmt = '/sys/class/power_supply/{0}/online'
+		for linux_ac in os.listdir('/sys/class/power_supply'):
+			online_path = linux_ac_fmt.format(linux_ac)
+			if linux_ac.startswith('AC') and os.path.exists(online_path):
+				pl.debug('Using /sys/class/power_supply with ac {0}', linux_ac)
 
-		    def _is_ac_powered(pl):
-			with open(online_path, 'r') as f:
-			    return bool(f.readline())
+				def _is_ac_powered(pl):
+					with open(online_path, 'r') as f:
+						return bool(f.readline())
 
-		    return _check_if_ac_powered
-	    pl.debug('Not using /sys/class/power_supply as no ac_power was found')
+			return _check_if_ac_powered
+		pl.debug('Not using /sys/class/power_supply as no ac_power was found')
 	else:
-	    pl.debug('Not using /sys/class/power_supply: no directory')
+		pl.debug('Not using /sys/class/power_supply: no directory')
 
 	try:
-	    from shutil import which
+		from shutil import which
 	except ImportError:
-	    pl.info('Using dumb "which" which only checks for file in /usr/bin')
-	    which = lambda f: (lambda fp: os.path.exists(fp) and fp)(os.path.join('/usr/bin', f))
+		pl.info('Using dumb "which" which only checks for file in /usr/bin')
+		which = lambda f: (lambda fp: os.path.exists(fp) and fp)(os.path.join('/usr/bin', f))
 
 	if which('pmset'):
 		def _is_ac_powered(pl):

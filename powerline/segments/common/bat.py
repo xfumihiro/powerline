@@ -11,8 +11,7 @@ from powerline.lib.shell import run_cmd
 # XXX Warning: module name must not be equal to the segment name as long as this 
 # segment is imported into powerline.segments.common module.
 
-
-def _get_battery(pl):
+def _get_battery_status(pl):
 	try:
 		import dbus
 	except ImportError:
@@ -51,10 +50,16 @@ def _get_battery(pl):
 						pl.debug('Not using DBUS+UPower with {0}: not a power supply', devpath)
 						continue
 					pl.debug('Using DBUS+UPower with {0}', devpath)
-					return lambda pl: float(
+					return float(
 						dbus.Interface(dev, dbus_interface=devinterface).Get(
 							devtype_name,
 							'Percentage'
+						),
+						bool(
+							dbus.Interface(dev, dbus_interface=devinterface).Get(
+								devtype_name,
+								'State'
+							) == 1
 						)
 					)
 				pl.debug('Not using DBUS+UPower as no batteries were found')
@@ -65,13 +70,20 @@ def _get_battery(pl):
 			cap_path = linux_bat_fmt.format(linux_bat)
 			if linux_bat.startswith('BAT') and os.path.exists(cap_path):
 				pl.debug('Using /sys/class/power_supply with battery {0}', linux_bat)
+				with open(cap_path, 'r') as f:
+					capacity = int(float(f.readline().split()[0]))
 
-				def _get_capacity(pl):
-					with open(cap_path, 'r') as f:
-						return int(float(f.readline().split()[0]))
-
-				return _get_capacity
-		pl.debug('Not using /sys/class/power_supply as no batteries were found')
+		linux_ac_fmt = '/sys/class/power_supply/{0}/online'
+		for linux_ac in os.listdir('/sys/class/power_supply'):
+			online_path = linux_ac_fmt.format(linux_ac)
+			if linux_ac.startswith('AC') and os.path.exists(online_path):
+				pl.debug('Using /sys/class/power_supply with ac {0}', linux_ac)
+				with open(online_path, 'r') as f:
+					ac_powered = bool(f.readline())
+		if capacity is not None and ac_powered is not None:
+			return capacity, ac_powered
+		else:
+			pl.debug('Not using /sys/class/power_supply as no batteries were found')
 	else:
 		pl.debug('Not using /sys/class/power_supply: no directory')
 
@@ -86,12 +98,10 @@ def _get_battery(pl):
 
 		BATTERY_PERCENT_RE = re.compile(r'(\d+)%')
 
-		def _get_capacity(pl):
-			battery_summary = run_cmd(pl, ['pmset', '-g', 'batt'])
-			battery_percent = BATTERY_PERCENT_RE.search(battery_summary).group(1)
-			return int(battery_percent)
+		battery_summary = run_cmd(pl, ['pmset', '-g', 'batt'])
+		battery_percent = BATTERY_PERCENT_RE.search(battery_summary).group(1)
+		return int(battery_percent), 'AC' in battery_summary
 
-		return _get_capacity
 	else:
 		pl.debug('Not using pmset: executable not found')
 
@@ -154,107 +164,6 @@ def _get_battery(pl):
 	raise NotImplementedError
 
 
-def _get_capacity(pl):
-	global _get_capacity
-
-	def _failing_get_capacity(pl):
-		raise NotImplementedError
-
-	try:
-		_get_capacity = _get_battery(pl)
-	except NotImplementedError:
-		_get_capacity = _failing_get_capacity
-	except Exception as e:
-		pl.exception('Exception while obtaining battery capacity getter: {0}', str(e))
-		_get_capacity = _failing_get_capacity
-	return _get_capacity(pl)
-
-
-def _check_if_ac_powered(pl):
-	try:
-		import dbus
-	except ImportError:
-		pl.error('Not using DBUS+UPower as dbus is not available')
-	else:
-		try:
-			bus = dbus.SystemBus()
-		except Exception as e:
-			pl.exception('Failed to connect to system bus: {0}', str(e))
-		else:
-			interface = 'org.freedesktop.UPower'
-			try:
-				up = bus.get_object(interface, '/org/freedesktop/UPower')
-			except dbus.exceptions.DBusException as e:
-				if getattr(e, '_dbus_error_name', '').endswith('ServiceUnknown'):
-					pl.debug('Not using DBUS+UPower as UPower is not available via dbus')
-				else:
-					pl.exception('Failed to get UPower service with dbus: {0}', str(e))
-			else:
-				devinterface = 'org.freedesktop.DBus.Properties'
-				devtype_name = interface + '.Device'
-				for devpath in up.EnumerateDevices(dbus_interface=interface):
-					dev = bus.get_object(interface, devpath)
-					lambda what: dev.Get(
-						devtype_name,
-						what,
-						dbus_interface=devinterface
-					)
-				pl.debug('Using DBUS+UPower with {0}', devpath)
-				return lambda pl: bool(
-					dbus.Interface(dev, dbus_interface=devinterface).Get(
-						devtype_name,
-						'State'
-					) == 1
-				)
-				pl.debug('Not using DBUS+UPower as no batteries were found')
-
-	if os.path.isdir('/sys/class/power_supply'):
-		linux_ac_fmt = '/sys/class/power_supply/{0}/online'
-		for linux_ac in os.listdir('/sys/class/power_supply'):
-			online_path = linux_ac_fmt.format(linux_ac)
-			if linux_ac.startswith('AC') and os.path.exists(online_path):
-				pl.debug('Using /sys/class/power_supply with ac {0}', linux_ac)
-
-				def _is_ac_powered(pl):
-					with open(online_path, 'r') as f:
-						return bool(f.readline())
-
-			return _is_ac_powered
-		pl.debug('Not using /sys/class/power_supply as no ac_power was found')
-	else:
-		pl.debug('Not using /sys/class/power_supply: no directory')
-
-	try:
-		from shutil import which
-	except ImportError:
-		pl.info('Using dumb "which" which only checks for file in /usr/bin')
-		which = lambda f: (lambda fp: os.path.exists(fp) and fp)(os.path.join('/usr/bin', f))
-
-	if which('pmset'):
-		def _is_ac_powered(pl):
-			return 'AC' in run_cmd(pl, ['pmset', '-g', 'batt'])
-
-		return _is_ac_powered
-
-	raise NotImplementedError
-
-
-def _is_ac_powered(pl):
-	global _is_ac_powered
-
-	def _failing_check_if_ac_powered(pl):
-		raise NotImplementedError
-
-	try:
-		_is_ac_powered = _check_if_ac_powered(pl)
-	except NotImplementedError:
-		_is_ac_powered = _failing_check_if_ac_powered
-	except Exception as e:
-		pl.exception('Exception while checking if AC powered', str(e))
-		_is_ac_powered = _failing_check_if_ac_powered
-	return _is_ac_powered(pl)
-
-
 def battery(pl, format='{capacity:3.0%}', steps=5, gamify=False, full_heart='O', empty_heart='O', charging='C'):
 	'''Return battery charge status.
 
@@ -283,15 +192,9 @@ def battery(pl, format='{capacity:3.0%}', steps=5, gamify=False, full_heart='O',
 	Highlight groups used: ``battery_full`` or ``battery_gradient`` (gradient) or ``battery``, ``battery_empty`` or ``battery_gradient`` (gradient) or ``battery``.
 	'''
 	try:
-		capacity = _get_capacity(pl)
+		capacity, ac_powered = _get_battery_status(pl)
 	except NotImplementedError:
-		pl.info('Unable to get battery capacity.')
-		return None
-
-	try:
-		ac_powered = _is_ac_powered(pl)
-	except NotImplementedError:
-		pl.info('Unable to check if AC powered.')
+		pl.info('Unable to get battery status.')
 		return None
 
 	ret = []

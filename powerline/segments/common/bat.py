@@ -71,7 +71,7 @@ def _get_battery_status(pl):
 			if linux_bat.startswith('BAT') and os.path.exists(cap_path):
 				pl.debug('Using /sys/class/power_supply with battery {0}', linux_bat)
 				with open(cap_path, 'r') as f:
-					capacity = int(float(f.readline().split()[0]))
+					_capacity = int(float(f.readline().split()[0]))
 
 		linux_ac_fmt = '/sys/class/power_supply/{0}/online'
 		for linux_ac in os.listdir('/sys/class/power_supply'):
@@ -79,9 +79,9 @@ def _get_battery_status(pl):
 			if linux_ac.startswith('AC') and os.path.exists(online_path):
 				pl.debug('Using /sys/class/power_supply with ac {0}', linux_ac)
 				with open(online_path, 'r') as f:
-					ac_powered = bool(f.readline())
-		if capacity is not None and ac_powered is not None:
-			return capacity, ac_powered
+					_ac_powered = bool(f.readline())
+		if _capacity is not None and _ac_powered is not None:
+			return _capacity, _ac_powered
 		else:
 			pl.debug('Not using /sys/class/power_supply as no batteries were found')
 	else:
@@ -119,12 +119,8 @@ def _get_battery_status(pl):
 			else:
 				for battery in wmi.InstancesOf('Win32_Battery'):
 					pl.debug('Using win32com.client with Win32_Battery')
-
-					def _get_capacity(pl):
-						# http://msdn.microsoft.com/en-us/library/aa394074(v=vs.85).aspx
-						return battery.EstimatedChargeRemaining
-
-					return _get_capacity
+					# http://msdn.microsoft.com/en-us/library/aa394074(v=vs.85).aspx
+					return battery.EstimatedChargeRemaining, battery.BatteryStatus == 6
 				pl.debug('Not using win32com.client as no batteries were found')
 		from ctypes import Structure, c_byte, c_ulong, byref
 		if sys.platform == 'cygwin':
@@ -146,20 +142,14 @@ def _get_battery_status(pl):
 				('BatteryFullLifeTime', c_ulong)
 			]
 
-		def _get_capacity(pl):
-			powerclass = PowerClass()
-			result = library_loader.kernel32.GetSystemPowerStatus(byref(powerclass))
-			# http://msdn.microsoft.com/en-us/library/windows/desktop/aa372693(v=vs.85).aspx
-			if result:
-				return None
-			return powerclass.BatteryLifePercent
-
-		if _get_capacity() is None:
+		powerclass = PowerClass()
+		result = library_loader.kernel32.GetSystemPowerStatus(byref(powerclass))
+		# http://msdn.microsoft.com/en-us/library/windows/desktop/aa372693(v=vs.85).aspx
+		if result:
 			pl.debug('Not using GetSystemPowerStatus because it failed')
 		else:
 			pl.debug('Using GetSystemPowerStatus')
-
-		return _get_capacity
+			return powerclass.BatteryLifePercent, powerclass.ACLineStatus == 1
 
 	raise NotImplementedError
 

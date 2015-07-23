@@ -194,7 +194,7 @@ def _check_if_ac_powered(pl):
 				devtype_name = interface + '.Device'
 				for devpath in up.EnumerateDevices(dbus_interface=interface):
 					dev = bus.get_object(interface, devpath)
-					devget = lambda what: dev.Get(
+					lambda what: dev.Get(
 						devtype_name,
 						what,
 						dbus_interface=devinterface
@@ -207,7 +207,6 @@ def _check_if_ac_powered(pl):
 					) == 1
 				)
 				pl.debug('Not using DBUS+UPower as no batteries were found')
-
 
 	if os.path.isdir('/sys/class/power_supply'):
 		linux_ac_fmt = '/sys/class/power_supply/{0}/online'
@@ -322,4 +321,3 @@ def battery(pl, format='{capacity:3.0%}', steps=5, gamify=False, full_heart='O',
 			'gradient_level': 100 - capacity,
 		})
 	return ret
-
